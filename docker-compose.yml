@@ -8,11 +8,10 @@ services:
       dockerfile: Dockerfile
     container_name: velox-api
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    network_mode: "host"
     environment:
       - OPENALGO_API_KEY=${OPENALGO_API_KEY}
-      - OPENALGO_HOST=${OPENALGO_HOST:-http://host.docker.internal:5000}
+      - OPENALGO_HOST=${OPENALGO_HOST:-http://localhost:5000}
       - OPENALGO_VERSION=${OPENALGO_VERSION:-v1}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - CORS_ORIGINS=http://localhost:3000,http://localhost:5678,http://localhost:1880,http://localhost:3001
@@ -21,8 +20,6 @@ services:
       - DEFAULT_TIMEFRAMES=${DEFAULT_TIMEFRAMES:-1m,5m,15m,1h,1d}
     volumes:
       - ./logs:/app/logs
-    networks:
-      - velox-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

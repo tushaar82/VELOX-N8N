@@ -82,3 +82,6 @@ PROJECT-*.md
 # Test files
 test_*.py
 tests/
+
+# OpenAlgo Flask app (conflicts with openalgo SDK package)
+openalgo/

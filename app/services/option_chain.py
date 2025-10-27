@@ -101,8 +101,19 @@ class OptionChainService(LoggerMixin):
         for attempt in range(max_retries):
             try:
                 async with async_playwright() as p:
-                    # Launch browser
-                    browser = await p.chromium.launch(headless=True)
+                    # Launch browser with anti-bot detection arguments
+                    browser = await p.chromium.launch(
+                        headless=True,
+                        args=[
+                            '--disable-blink-features=AutomationControlled',
+                            '--disable-dev-shm-usage',
+                            '--no-sandbox',
+                            '--disable-setuid-sandbox',
+                            '--disable-web-security',
+                            '--disable-features=IsolateOrigins,site-per-process',
+                            '--disable-site-isolation-trials'
+                        ]
+                    )
                     
                     try:
                         # Fetch data
@@ -158,7 +169,7 @@ class OptionChainService(LoggerMixin):
         Returns:
             Dict: Raw API response data
         """
-        # Create browser context with realistic headers
+        # Create browser context with realistic headers and extra HTTP headers
         context = await browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -166,20 +177,68 @@ class OptionChainService(LoggerMixin):
                 "Chrome/120.0.0.0 Safari/537.36"
             ),
             viewport={"width": 1920, "height": 1080},
-            locale="en-IN"
+            locale="en-IN",
+            extra_http_headers={
+                "Accept": "*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "DNT": "1",
+                "Upgrade-Insecure-Requests": "1"
+            }
         )
         
         try:
             page = await context.new_page()
             
-            # Step 1: Visit option chain page to establish cookies
+            # Inject script to remove webdriver property (anti-bot detection)
+            await page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                
+                // Override the plugins property
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+                
+                // Override the languages property
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en']
+                });
+                
+                // Chrome runtime
+                window.chrome = {
+                    runtime: {}
+                };
+                
+                // Permissions
+                const originalQuery = window.navigator.permissions.query;
+                window.navigator.permissions.query = (parameters) => (
+                    parameters.name === 'notifications' ?
+                        Promise.resolve({ state: Notification.permission }) :
+                        originalQuery(parameters)
+                );
+            """)
+            
+            # Step 1: Visit NSE homepage first to establish initial cookies
+            self.logger.debug(f"Visiting NSE homepage: {self.NSE_BASE_URL}")
+            try:
+                await page.goto(self.NSE_BASE_URL, wait_until="domcontentloaded", timeout=30000)
+                await asyncio.sleep(2)
+            except Exception as e:
+                self.logger.warning(f"Homepage visit failed, continuing: {e}")
+            
+            # Step 2: Visit option chain page to establish cookies
             self.logger.debug(f"Visiting {self.NSE_OPTION_CHAIN_URL}")
-            await page.goto(self.NSE_OPTION_CHAIN_URL, wait_until="networkidle")
+            try:
+                await page.goto(self.NSE_OPTION_CHAIN_URL, wait_until="domcontentloaded", timeout=30000)
+                # Wait for page to load and cookies to be set
+                await asyncio.sleep(3)
+            except Exception as e:
+                self.logger.warning(f"Option chain page visit failed, continuing: {e}")
             
-            # Wait a bit for cookies and bot checks
-            await asyncio.sleep(2)
-            
-            # Step 2: Construct API URL
+            # Step 3: Construct API URL
             if use_v3_api:
                 # Use v3 API with type parameter
                 market_type = "INDEX" if is_index else "EQUITY"
@@ -193,18 +252,19 @@ class OptionChainService(LoggerMixin):
             
             self.logger.debug(f"Fetching from API: {api_url}")
             
-            # Set additional headers
+            # Step 4: Set additional headers for API request
             await page.set_extra_http_headers({
                 "Accept": "application/json, text/plain, */*",
                 "Accept-Language": "en-US,en;q=0.9",
                 "Referer": self.NSE_OPTION_CHAIN_URL,
                 "Sec-Fetch-Dest": "empty",
                 "Sec-Fetch-Mode": "cors",
-                "Sec-Fetch-Site": "same-origin"
+                "Sec-Fetch-Site": "same-origin",
+                "X-Requested-With": "XMLHttpRequest"
             })
             
-            # Navigate to API endpoint
-            response = await page.goto(api_url, wait_until="networkidle")
+            # Step 5: Navigate to API endpoint with timeout
+            response = await page.goto(api_url, wait_until="domcontentloaded", timeout=30000)
             
             if response.status != 200:
                 raise Exception(f"API returned status {response.status}")

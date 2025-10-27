@@ -47,9 +47,6 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Install Playwright browsers
-RUN playwright install chromium
-
 # Copy application code
 COPY . .
 
@@ -57,8 +54,18 @@ COPY . .
 RUN useradd -m -u 1000 velox && \
     chown -R velox:velox /app
 
+# Install Playwright system dependencies as root
+RUN playwright install-deps chromium
+
+# Create playwright cache directory and set permissions
+RUN mkdir -p /home/velox/.cache/ms-playwright && \
+    chown -R velox:velox /home/velox/.cache
+
 # Switch to non-root user
 USER velox
+
+# Install Playwright browsers as velox user
+RUN playwright install chromium
 
 # Expose port
 EXPOSE 8000
