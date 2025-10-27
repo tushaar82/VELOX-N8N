@@ -73,17 +73,17 @@ echo "✅ Grafana dashboard provisioning configured"
 # Pull latest images
 echo ""
 echo "Pulling Docker images..."
-docker-compose pull
+docker compose pull
 
 # Build VELOX API
 echo ""
 echo "Building VELOX API..."
-docker-compose build velox-api
+docker compose build velox-api
 
 # Start services
 echo ""
 echo "Starting services..."
-docker-compose up -d
+docker compose up -d
 
 # Wait for services to be healthy
 echo ""
@@ -95,7 +95,7 @@ echo ""
 echo "======================================================================"
 echo "SERVICE STATUS"
 echo "======================================================================"
-docker-compose ps
+docker compose ps
 
 # Display access information
 echo ""
@@ -115,13 +115,13 @@ echo "  n8n:            admin / changeme123"
 echo "  Grafana:        admin / changeme123"
 echo ""
 echo "📝 Logs:"
-echo "  View all:       docker-compose logs -f"
-echo "  VELOX API:      docker-compose logs -f velox-api"
-echo "  n8n:            docker-compose logs -f n8n"
-echo "  Node-RED:       docker-compose logs -f node-red"
-echo "  Grafana:        docker-compose logs -f grafana"
+echo "  View all:       docker compose logs -f"
+echo "  VELOX API:      docker compose logs -f velox-api"
+echo "  n8n:            docker compose logs -f n8n"
+echo "  Node-RED:       docker compose logs -f node-red"
+echo "  Grafana:        docker compose logs -f grafana"
 echo ""
 echo "🛑 Stop services:"
-echo "  docker-compose down"
+echo "  docker compose down"
 echo ""
 echo "======================================================================"
