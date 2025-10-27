@@ -1,0 +1,169 @@
+version: '3.8'
+
+services:
+  # VELOX API - Real-Time Technical Analysis
+  velox-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: velox-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENALGO_API_KEY=${OPENALGO_API_KEY}
+      - OPENALGO_HOST=${OPENALGO_HOST:-http://host.docker.internal:5000}
+      - OPENALGO_VERSION=${OPENALGO_VERSION:-v1}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5678,http://localhost:1880,http://localhost:3001
+      - MAX_WEBSOCKET_CONNECTIONS=${MAX_WEBSOCKET_CONNECTIONS:-100}
+      - TICK_BUFFER_SIZE=${TICK_BUFFER_SIZE:-1000}
+      - DEFAULT_TIMEFRAMES=${DEFAULT_TIMEFRAMES:-1m,5m,15m,1h,1d}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - velox-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # n8n - Workflow Automation
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin}
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=${TIMEZONE:-Asia/Kolkata}
+      - TZ=${TIMEZONE:-Asia/Kolkata}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n-workflows:/workflows
+    networks:
+      - velox-network
+    depends_on:
+      - velox-api
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Node-RED - Flow-based Programming
+  node-red:
+    image: nodered/node-red:latest
+    container_name: node-red
+    restart: unless-stopped
+    ports:
+      - "1880:1880"
+    environment:
+      - TZ=${TIMEZONE:-Asia/Kolkata}
+      - NODE_RED_ENABLE_PROJECTS=true
+    volumes:
+      - node_red_data:/data
+      - ./node-red-flows:/flows
+    networks:
+      - velox-network
+    depends_on:
+      - velox-api
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:1880"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Grafana - Monitoring & Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - velox-network
+    depends_on:
+      - velox-api
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PostgreSQL - Database for n8n (optional but recommended)
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-n8n}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-n8n}
+      - POSTGRES_DB=${POSTGRES_DB:-n8n}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - velox-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-n8n}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis - Cache & Message Broker (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - velox-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  velox-network:
+    driver: bridge
+
+volumes:
+  n8n_data:
+    driver: local
+  node_red_data:
+    driver: local
+  grafana_data:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
