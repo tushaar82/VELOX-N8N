@@ -1,6 +1,6 @@
 """
 Technical indicators service using the ta library.
-Calculates 43+ technical indicators across all categories.
+Calculates 70+ technical indicators across all categories.
 """
 
 from typing import Dict, List, Optional, Any
@@ -20,6 +20,8 @@ class IndicatorService(LoggerMixin):
     - Volatility indicators
     - Trend indicators
     - Momentum indicators
+    - Statistical indicators
+    - Pattern indicators
     - Others
     """
     
@@ -33,7 +35,7 @@ class IndicatorService(LoggerMixin):
         params: Optional[Dict[str, Dict[str, Any]]] = None
     ) -> Dict[str, pd.Series]:
         """
-        Calculate all 43+ technical indicators.
+        Calculate all 70+ technical indicators.
         
         Args:
             df: DataFrame with OHLCV columns (open, high, low, close, volume)
@@ -63,6 +65,12 @@ class IndicatorService(LoggerMixin):
         
         # Momentum Indicators
         indicators.update(self._calculate_momentum_indicators(df, params))
+        
+        # Statistical Indicators
+        indicators.update(self._calculate_statistical_indicators(df, params))
+        
+        # Pattern Indicators
+        indicators.update(self._calculate_pattern_indicators(df, params))
         
         # Others
         indicators.update(self._calculate_other_indicators(df, params))
@@ -525,6 +533,142 @@ class IndicatorService(LoggerMixin):
             
         except Exception as e:
             self.logger.error(f"Error calculating other indicators: {e}")
+        
+        return indicators
+    
+    def _calculate_statistical_indicators(
+        self,
+        df: pd.DataFrame,
+        params: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, pd.Series]:
+        """Calculate statistical indicators."""
+        indicators = {}
+        
+        try:
+            # Standard Deviation
+            std_params = params.get('StdDev', {})
+            indicators['StdDev'] = df['close'].rolling(
+                window=std_params.get('window', 20)
+            ).std()
+            
+            # Z-Score
+            zscore_params = params.get('ZScore', {})
+            window = zscore_params.get('window', 20)
+            rolling_mean = df['close'].rolling(window=window).mean()
+            rolling_std = df['close'].rolling(window=window).std()
+            indicators['ZScore'] = (df['close'] - rolling_mean) / rolling_std
+            
+            # Price Rate of Change (different from ROC)
+            proc_params = params.get('PriceROC', {})
+            indicators['PriceROC'] = df['close'].pct_change(
+                periods=proc_params.get('periods', 1)
+            ) * 100
+            
+            # Average True Range Percentage
+            atrp_params = params.get('ATRP', {})
+            atr = ta.volatility.AverageTrueRange(
+                high=df['high'],
+                low=df['low'],
+                close=df['close'],
+                window=atrp_params.get('window', 14)
+            ).average_true_range()
+            indicators['ATRP'] = (atr / df['close']) * 100
+            
+            # Bollinger Band Width Percentage
+            bbw_params = params.get('BBWPercent', {})
+            bb = ta.volatility.BollingerBands(
+                close=df['close'],
+                window=bbw_params.get('window', 20),
+                window_dev=bbw_params.get('window_dev', 2)
+            )
+            bb_width = bb.bollinger_wband()
+            indicators['BBWPercent'] = (bb_width / df['close']) * 100
+            
+            # Price Position
+            pp_params = params.get('PricePosition', {})
+            bb = ta.volatility.BollingerBands(
+                close=df['close'],
+                window=pp_params.get('window', 20),
+                window_dev=pp_params.get('window_dev', 2)
+            )
+            bb_upper = bb.bollinger_hband()
+            bb_lower = bb.bollinger_lband()
+            indicators['PricePosition'] = (df['close'] - bb_lower) / (bb_upper - bb_lower)
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating statistical indicators: {e}")
+        
+        return indicators
+    
+    def _calculate_pattern_indicators(
+        self,
+        df: pd.DataFrame,
+        params: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, pd.Series]:
+        """Calculate pattern-based indicators."""
+        indicators = {}
+        
+        try:
+            # Doji Pattern
+            indicators['Doji'] = (
+                (abs(df['close'] - df['open']) / (df['high'] - df['low']) < 0.1
+            ).astype(int)
+            
+            # Hammer Pattern
+            body = abs(df['close'] - df['open'])
+            upper_shadow = df['high'] - df[['open', 'close']].max(axis=1)
+            lower_shadow = df[['open', 'close']].min(axis=1) - df['low']
+            
+            hammer_params = params.get('Hammer', {})
+            body_ratio = hammer_params.get('body_ratio', 0.3)
+            indicators['Hammer'] = (
+                (lower_shadow > 2 * body) &
+                (upper_shadow < 0.1 * body) &
+                (body / (df['high'] - df['low']) < body_ratio)
+            ).astype(int)
+            
+            # Engulfing Pattern
+            eng_params = params.get('Engulfing', {})
+            lookback = eng_params.get('lookback', 1)
+            
+            prev_open = df['open'].shift(lookback)
+            prev_close = df['close'].shift(lookback)
+            prev_high = df['high'].shift(lookback)
+            prev_low = df['low'].shift(lookback)
+            
+            bullish_engulf = (
+                (prev_close < prev_open) &  # Previous candle is red
+                (df['close'] > df['open']) &  # Current candle is green
+                (df['open'] < prev_close) &  # Current opens below previous close
+                (df['close'] > prev_open)    # Current closes above previous open
+            )
+            
+            bearish_engulf = (
+                (prev_close > prev_open) &  # Previous candle is green
+                (df['close'] < df['open']) &  # Current candle is red
+                (df['open'] > prev_close) &  # Current opens above previous close
+                (df['close'] < prev_open)    # Current closes below previous open
+            )
+            
+            indicators['BullishEngulfing'] = bullish_engulf.astype(int)
+            indicators['BearishEngulfing'] = bearish_engulf.astype(int)
+            
+            # Inside Bar
+            inside_bar = (
+                (df['high'] < df['high'].shift(1)) &
+                (df['low'] > df['low'].shift(1))
+            )
+            indicators['InsideBar'] = inside_bar.astype(int)
+            
+            # Outside Bar
+            outside_bar = (
+                (df['high'] > df['high'].shift(1)) &
+                (df['low'] < df['low'].shift(1))
+            )
+            indicators['OutsideBar'] = outside_bar.astype(int)
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating pattern indicators: {e}")
         
         return indicators
     

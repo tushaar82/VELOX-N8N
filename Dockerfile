@@ -54,18 +54,18 @@ COPY . .
 RUN useradd -m -u 1000 velox && \
     chown -R velox:velox /app
 
-# Install Playwright system dependencies as root
-RUN playwright install-deps chromium
+# Install Playwright browsers as root (before switching user)
+RUN playwright install chromium && \
+    playwright install-deps chromium
 
-# Create playwright cache directory and set permissions
-RUN mkdir -p /home/velox/.cache/ms-playwright && \
+# Create non-root user
+RUN useradd -m -u 1000 velox && \
+    chown -R velox:velox /app && \
+    mkdir -p /home/velox/.cache/ms-playwright && \
     chown -R velox:velox /home/velox/.cache
 
 # Switch to non-root user
 USER velox
-
-# Install Playwright browsers as velox user
-RUN playwright install chromium
 
 # Expose port
 EXPOSE 8000

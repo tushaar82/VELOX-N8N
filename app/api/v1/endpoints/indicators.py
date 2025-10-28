@@ -589,6 +589,94 @@ AVAILABLE_INDICATORS = {
         "description": "Cumulative Return",
         "parameters": {},
         "min_periods": 1
+    },
+    
+    # Statistical Indicators (7)
+    "StdDev": {
+        "name": "StdDev",
+        "category": "statistical",
+        "description": "Standard Deviation",
+        "parameters": {"window": {"default": 20, "min": 2, "max": 100}},
+        "min_periods": 2
+    },
+    "ZScore": {
+        "name": "ZScore",
+        "category": "statistical",
+        "description": "Z-Score (Standard Score)",
+        "parameters": {"window": {"default": 20, "min": 2, "max": 100}},
+        "min_periods": 2
+    },
+    "PriceROC": {
+        "name": "PriceROC",
+        "category": "statistical",
+        "description": "Price Rate of Change",
+        "parameters": {"periods": {"default": 1, "min": 1, "max": 50}},
+        "min_periods": 2
+    },
+    "ATRP": {
+        "name": "ATRP",
+        "category": "statistical",
+        "description": "Average True Range Percentage",
+        "parameters": {"window": {"default": 14, "min": 2, "max": 100}},
+        "min_periods": 14
+    },
+    "BBWPercent": {
+        "name": "BBWPercent",
+        "category": "statistical",
+        "description": "Bollinger Band Width Percentage",
+        "parameters": {"window": {"default": 20, "min": 2, "max": 100}, "window_dev": {"default": 2, "min": 1, "max": 5}},
+        "min_periods": 20
+    },
+    "PricePosition": {
+        "name": "PricePosition",
+        "category": "statistical",
+        "description": "Price Position within Bollinger Bands",
+        "parameters": {"window": {"default": 20, "min": 2, "max": 100}, "window_dev": {"default": 2, "min": 1, "max": 5}},
+        "min_periods": 20
+    },
+    
+    # Pattern Indicators (7)
+    "Doji": {
+        "name": "Doji",
+        "category": "pattern",
+        "description": "Doji Candlestick Pattern",
+        "parameters": {},
+        "min_periods": 1
+    },
+    "Hammer": {
+        "name": "Hammer",
+        "category": "pattern",
+        "description": "Hammer Candlestick Pattern",
+        "parameters": {"body_ratio": {"default": 0.3, "min": 0.1, "max": 0.5}},
+        "min_periods": 1
+    },
+    "BullishEngulfing": {
+        "name": "BullishEngulfing",
+        "category": "pattern",
+        "description": "Bullish Engulfing Pattern",
+        "parameters": {"lookback": {"default": 1, "min": 1, "max": 5}},
+        "min_periods": 2
+    },
+    "BearishEngulfing": {
+        "name": "BearishEngulfing",
+        "category": "pattern",
+        "description": "Bearish Engulfing Pattern",
+        "parameters": {"lookback": {"default": 1, "min": 1, "max": 5}},
+        "min_periods": 2
+    },
+    "InsideBar": {
+        "name": "InsideBar",
+        "category": "pattern",
+        "description": "Inside Bar Pattern",
+        "parameters": {},
+        "min_periods": 2
+    },
+    "OutsideBar": {
+        "name": "OutsideBar",
+        "category": "pattern",
+        "description": "Outside Bar Pattern",
+        "parameters": {},
+        "min_periods": 2
     }
 }
 

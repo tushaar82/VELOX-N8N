@@ -52,5 +52,19 @@ if FASTAPI_AVAILABLE:
         logger.info("Included websocket router")
     except Exception as e:
         logger.warning(f"Could not include websocket router: {e}")
+    
+    try:
+        from app.api.v1.endpoints.indicators_categorized import router as indicators_categorized_router
+        api_router.include_router(indicators_categorized_router)
+        logger.info("Included indicators categorized router")
+    except Exception as e:
+        logger.warning(f"Could not include indicators categorized router: {e}")
+    
+    try:
+        from app.api.v1.endpoints.technical_analysis import router as technical_analysis_router
+        api_router.include_router(technical_analysis_router)
+        logger.info("Included technical analysis router")
+    except Exception as e:
+        logger.warning(f"Could not include technical analysis router: {e}")
 else:
     api_router = None
