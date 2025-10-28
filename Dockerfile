@@ -47,22 +47,17 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Copy application code
-COPY . .
-
-# Create non-root user
-RUN useradd -m -u 1000 velox && \
-    chown -R velox:velox /app
-
-# Install Playwright browsers as root (before switching user)
+# Install Playwright browsers as root (before copying app code)
 RUN playwright install chromium && \
     playwright install-deps chromium
 
-# Create non-root user
+# Copy application code
+COPY . .
+
+# Create non-root user and set permissions
 RUN useradd -m -u 1000 velox && \
-    chown -R velox:velox /app && \
     mkdir -p /home/velox/.cache/ms-playwright && \
-    chown -R velox:velox /home/velox/.cache
+    chown -R velox:velox /app /home/velox/.cache
 
 # Switch to non-root user
 USER velox

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # VELOX API - Real-Time Technical Analysis
   velox-api:
